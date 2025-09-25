@@ -1,0 +1,8 @@
+{
+ "topics": [
+   "channel.metadata",
+   "v2.users.me.presence",
+   "v2.conversations.calls",
+   ""
+ ]
+}
