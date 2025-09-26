@@ -1,25 +1,35 @@
-### BEGIN: docker-compose.yml
 version: "3.9"
 services:
-  genesys-notif-collector:
-    build: .
+  genesys-audiohook-collector:
+    build: 
+      context: .
+      dockerfile: containerization.dockerfile
     restart: unless-stopped
     environment:
       GENESYS_ENV: "usw2.pure.cloud"
       GENESYS_CLIENT_ID: "${GENESYS_CLIENT_ID}"
       GENESYS_CLIENT_SECRET: "${GENESYS_CLIENT_SECRET}"
+      
+      OUTPUT_FILE: "/app/data/audiohook_events.jsonl"
+      CONSOLE_OUTPUT: "true"
+      
+      # Optional Elasticsearch integration
+      ELASTIC_URL: "${ELASTIC_URL:-}"
+      ELASTIC_AUTH: "${ELASTIC_AUTH:-}"
+      ELASTIC_INDEX: "genesys-audiohook"
+      
+      HTTP_HOST: "0.0.0.0"
+      HTTP_PORT: "8077"
+      
       TOPICS_FILE: "/app/topics.json"
-
-      ELASTIC_URL: "${ELASTIC_URL}"
-      ELASTIC_AUTH: "${ELASTIC_AUTH}"           # "user:pass" or a Bearer token
-      ELASTIC_DATASTREAM: "false"               # set true if using data stream
-      ELASTIC_INDEX: "genesys-events"           # data stream name or index base
-
-      BULK_MAX_DOCS: "200"
-      BULK_MAX_SECONDS: "5"
-      BULK_CONCURRENCY: "2"
+    
+    volumes:
+      - ./data:/app/data
+    
+    ports:
+      - "8077:8077"
+    
     logging:
       options:
         max-size: "10m"
         max-file: "5"
-### END: docker-compose.yml

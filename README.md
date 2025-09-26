@@ -1,77 +1,176 @@
-# Genesys AudioHook Collector → Elastic (Service Install)
+# Genesys AudioHook Event Collector - Streamlined Version
 
-This package runs a small Python service that:
-- Authenticates to **Genesys Cloud** (OAuth2 client credentials)
-- Auto-discovers **AudioHook** operational topics (or uses `topics.json`)
-- Opens a **Notifications WebSocket**, auto-reconnects & resubscribes
-- Ships events to **Elastic** via the **Bulk API**
-- Exposes local **/health** and **/stats** (default port 8077)
+A focused, efficient collector service for **Genesys Cloud AudioHook operational events**. This streamlined version consolidates the original complex codebase into a single, maintainable solution that provides:
 
-## What you need
-- A **Genesys OAuth client** (client credentials) with permissions to create/manage notifications channels.
-- **Elastic** URL + auth (user/pass, ApiKey, or Bearer token).
-- On Windows: PowerShell 5.1+ or 7+, any standard user with rights to create a service.
-- On Linux: systemd host (Ubuntu/Debian/RHEL etc.), sudo.
+- **Real-time AudioHook event collection** from Genesys Cloud
+- **Readable JSONL output file** with automatic rotation
+- **AudioHook-specific event validation** and formatting
+- **Optional Elasticsearch integration** for search and analytics
+- **Built-in health monitoring** and statistics
+- **Docker containerization** for easy deployment
 
-## Files in this folder
-- `collector.py`              # the service app (your updated AudioHook collector)
-- `.env.example`              # template for environment variables
-- `topics.json`               # optional topic list (auto-discovery works without it)
-- `install-windows.ps1`       # installs Windows service
-- `uninstall-windows.ps1`     # removes Windows service
-- `run-collector.ps1`         # service entry script (loads .env, runs Python)
-- `install-linux.sh`          # installs systemd service on Linux
-- `genesys-audiohook-collector.service`  # systemd unit file (used by the installer)
+## What It Does
 
-## Windows Install (PowerShell)
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force
-.\install-windows.ps1
-# Then check:
-Get-Service GenesysAudioHookCollector
-Start-Service GenesysAudioHookCollector
-# Health:
-Invoke-RestMethod http://localhost:8077/health
+1. **Authenticates** to Genesys Cloud using OAuth2 client credentials
+2. **Subscribes** to AudioHook operational event topics via WebSocket
+3. **Validates and filters** events to ensure they are AudioHook-related
+4. **Writes readable events** to a continuously updated JSONL file
+5. **Optionally sends** events to Elasticsearch for indexing
+6. **Provides health endpoints** for monitoring
 
-### END: README.md
+## Quick Start
 
----
+### 1. Configuration
+Copy the example configuration:
+```bash
+cp .env.example .env
+```
 
-### BEGIN: .env.example
-```ini
-# --- Genesys ---
+Edit `.env` with your Genesys Cloud credentials:
+```bash
 GENESYS_ENV=usw2.pure.cloud
-GENESYS_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-GENESYS_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GENESYS_CLIENT_ID=your-client-id
+GENESYS_CLIENT_SECRET=your-client-secret
+OUTPUT_FILE=./audiohook_events.jsonl
+```
 
-# --- Topic selection (optional; auto-discovery works if omitted) ---
-AUTO_DISCOVER_AUDIOHOOK=true
-TOPICS_FILE=/opt/genesys-audiohook/topics.json
-TOPIC_INCLUDE_REGEX=audiohook
-TOPIC_EXCLUDE_REGEX=
-FALLBACK_TOPICS=channel.metadata,v2.users.me.presence
+### 2. Run with Docker (Recommended)
+```bash
+# Build and run
+docker-compose up --build -d
 
-# --- Elastic sink ---
-ELASTIC_URL=https://elastic.example.com:9200
-# One of:
-ELASTIC_AUTH=elastic:YourPassword
-# OR:
-# ELASTIC_AUTH=ApiKey base64IdColonSecret
-# OR:
-# ELASTIC_AUTH=Bearer eyJhbGciOi...
+# Check logs
+docker-compose logs -f
 
-ELASTIC_DATASTREAM=false
-ELASTIC_INDEX=genesys-audiohook
+# Check health
+curl http://localhost:8077/health
+```
 
-# --- Bulk behavior ---
-BULK_MAX_DOCS=200
-BULK_MAX_SECONDS=5
-BULK_CONCURRENCY=2
-RETRY_BASE_SLEEP=1.5
-RETRY_MAX_SLEEP=30
+### 3. Run Directly with Python
+```bash
+# Install dependencies
+pip install aiohttp
 
-# --- Status server ---
-HTTP_STATUS_ENABLED=true
-HTTP_STATUS_HOST=0.0.0.0
-HTTP_STATUS_PORT=8077
-### END: .env.example
+# Run collector
+python audiohook_collector.py
+```
+
+## Output Format
+
+Events are written to `audiohook_events.jsonl` in readable JSONL format:
+```json
+{
+  "timestamp": "2024-01-15T10:30:45.123456Z",
+  "event_type": "audiohook_operational",
+  "event_id": "AUDIOHOOK-0001",
+  "event_name": "AudioHook integration error",
+  "description": "The provisioned server URI is invalid.",
+  "conversation_id": "34c18827-77a6-4970-ad66-6f2966c85bad",
+  "entity_type": "integration",
+  "entity_id": "0f8f91f9-a27d-4ddf-9026-7e1e3a8d73a6",
+  "entity_name": "AudioHook Integration Name",
+  "version": "1.0",
+  "topic": "platform.integration.audiohook",
+  "channel": "streaming-channel-12345",
+  "raw_event": { ... }
+}
+```
+
+## AudioHook Event Types Supported
+
+Based on the [Genesys AudioHook operational event catalog](https://developer.genesys.cloud/platform/operational-event-catalog/audiohook/), this collector handles:
+
+- **AUDIOHOOK-0001**: Integration configuration errors
+- **AUDIOHOOK-0002**: Connection timeouts
+- **AUDIOHOOK-0003**: Authentication failures
+- **All other AUDIOHOOK-*** events** as they are added
+
+## Configuration Options
+
+### Required Settings
+- `GENESYS_ENV`: Your Genesys Cloud environment (e.g., `usw2.pure.cloud`)
+- `GENESYS_CLIENT_ID`: OAuth2 client ID
+- `GENESYS_CLIENT_SECRET`: OAuth2 client secret
+
+### Output Settings  
+- `OUTPUT_FILE`: Path to JSONL output file (default: `./audiohook_events.jsonl`)
+- `MAX_FILE_SIZE`: File size before rotation in bytes (default: 10MB)
+- `BACKUP_COUNT`: Number of rotated files to keep (default: 5)
+- `CONSOLE_OUTPUT`: Also log to console (default: `true`)
+
+### Optional Elasticsearch
+- `ELASTIC_URL`: Elasticsearch cluster URL (leave blank to disable)
+- `ELASTIC_AUTH`: Authentication (`user:pass` or `Bearer token`)
+- `ELASTIC_INDEX`: Index name (default: `genesys-audiohook`)
+- `BULK_SIZE`: Batch size for bulk indexing (default: 50)
+
+### Topics Configuration
+- `TOPICS_FILE`: Custom topics JSON file (default: `./topics.json`)
+
+### HTTP Status Server
+- `HTTP_HOST`: HTTP server bind address (default: `0.0.0.0`)
+- `HTTP_PORT`: HTTP server port (default: `8077`)
+
+## Monitoring
+
+### Health Check
+```bash
+curl http://localhost:8077/health
+```
+Returns status, statistics, and current topics.
+
+### Recent Events
+```bash
+curl http://localhost:8077/events
+```
+Returns the last 50 processed events.
+
+### Log Monitoring
+The collector outputs structured JSON logs:
+```bash
+# Follow logs in Docker
+docker-compose logs -f
+
+# Monitor output file
+tail -f audiohook_events.jsonl
+```
+
+## Key Improvements from Original
+
+1. **Consolidated Code**: Reduced from 491 lines to ~450 lines of focused functionality
+2. **AudioHook-Specific**: Proper validation and handling of AudioHook operational events  
+3. **Readable Output**: JSONL format with human-readable structure and automatic rotation
+4. **Simplified Configuration**: Fewer, clearer configuration options
+5. **Better Error Handling**: Focused error handling for AudioHook scenarios
+6. **Streamlined Dependencies**: Only requires `aiohttp`
+7. **Improved Monitoring**: Clear health endpoints and statistics
+
+## Troubleshooting
+
+### No Events Received
+1. Check your Genesys Cloud credentials
+2. Verify OAuth client has notification permissions
+3. Check if AudioHook integrations are configured in your org
+4. Review topics in `topics.json`
+
+### File Not Updating  
+1. Check file permissions for `OUTPUT_FILE` directory
+2. Monitor console logs for write errors
+3. Verify disk space availability
+
+### Connection Issues
+1. Verify `GENESYS_ENV` matches your organization
+2. Check firewall rules for WebSocket connections
+3. Monitor reconnection attempts in logs
+
+## Development
+
+The collector is designed as a single, focused Python file for easy maintenance:
+- `audiohook_collector.py` - Main collector class and logic
+- `.env.example` - Configuration template
+- `topics.json` - AudioHook topic definitions
+- `example_audiohook_events.jsonl` - Sample output format
+
+## Previous Version
+
+The original `collector.py` is preserved for reference but the new `audiohook_collector.py` is recommended for all new deployments.
