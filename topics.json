@@ -1,8 +1,8 @@
 {
- "topics": [
-   "channel.metadata",
-   "v2.users.me.presence",
-   "v2.conversations.calls",
-   ""
- ]
+  "topics": [
+    "platform.integration.audiohook",
+    "platform.operations.audiohook",
+    "v2.auditing.integration.audiohook",
+    "channel.metadata"
+  ]
 }

@@ -7,7 +7,7 @@ WORKDIR /app
 # Minimal dependencies
 RUN pip install --no-cache-dir aiohttp
 
-COPY collector.py topics.json /app/
+COPY audiohook_collector.py topics.json .env.example /app/
 
-CMD ["python", "-u", "collector.py"]
+CMD ["python", "-u", "audiohook_collector.py"]
 ### END: Dockerfile
